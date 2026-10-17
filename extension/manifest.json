@@ -1,0 +1,1 @@
+{"manifest_version":3,"name":"Nudge — Opportunity Clipper","version":"0.1.0","description":"Capture an opportunity’s page title and source URL for your Nudge workspace.","permissions":["activeTab"],"action":{"default_popup":"popup.html"}}
