@@ -10,3 +10,8 @@ work/
 .DS_Store
 Thumbs.db
 nudge-workspace.json
+data/
+coverage/
+public/assets/
+public/nudge-extension.zip
+extension/build/
