@@ -2,11 +2,10 @@ import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
-import { PGlite } from '@electric-sql/pglite';
 
 export async function database(url, localPath = './data/nudge') {
   if (!url && localPath !== 'memory://') await mkdir(path.dirname(localPath), { recursive: true });
-  const pg = Boolean(url), driver = pg ? new Pool({ connectionString: url, max: 10 }) : new PGlite(localPath);
+  const pg = Boolean(url), driver = pg ? new Pool({ connectionString: url, max: 4, idleTimeoutMillis: 10000, connectionTimeoutMillis: 10000 }) : new (await import('@electric-sql/pglite')).PGlite(localPath);
   const schema = await readFile(new URL('./schema.sql', import.meta.url), 'utf8');
   if (pg) await driver.query(schema); else await driver.exec(schema);
   let busy = false;

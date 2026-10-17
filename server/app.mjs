@@ -187,7 +187,11 @@ export function application({ db, vault, ai, mail, engine, scrape, config, authe
     await db.event(req.subject, `campaign_${body.action}`, { mode: campaign.goal.mode }, null, campaign.id);
     res.json({ ok: true });
   });
-  app.post('/api/run', (req, res) => {
+  app.post('/api/run', async (req, res) => {
+    if (config.serverless) {
+      const completed = await engine.tick(req.subject);
+      return res.json({ ok: true, completed });
+    }
     engine.tick(req.subject).catch(error => console.error('Worker failed:', error.name));
     res.status(202).json({ ok: true });
   });
