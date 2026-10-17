@@ -97,3 +97,9 @@ The default worker runs every 60 seconds while the server is alive. Multiple ser
 No Auth0 tenant, Google OAuth app, Gemini key, or production database was connected during implementation. Automated tests simulate the external providers. Chrome PKCE, provider quota behavior, geographic inference, model output quality, production PostgreSQL advisory locks, and real-mail delivery require the live smoke test above.
 
 Official references: [Auth0 token verification](https://auth0.com/docs/secure/tokens/access-tokens/validate-access-tokens), [Chrome identity](https://developer.chrome.com/docs/extensions/reference/api/identity), [Gmail threading](https://developers.google.com/workspace/gmail/api/guides/threads), [Gemini search grounding](https://ai.google.dev/gemini-api/docs/generate-content/google-search).
+# GitHub Pages website
+
+The public website is hosted at https://bobthebuilderisoutdated.github.io/Swamphacks-2026/ from the `gh-pages` branch. It includes the marketing site, extension download, and an explicit setup screen. GitHub Pages cannot run the Node backend, database, or email worker; those features require the server setup below. No API keys belong in the Pages build.
+
+To update this deployment, run `node scripts/build-pages.mjs` and publish the contents of `pages-dist/` to the root of `gh-pages`. Keep backend source on `feat/autonomous-outreach`. The standard `npm run build` remains the full server/extension build.
+
