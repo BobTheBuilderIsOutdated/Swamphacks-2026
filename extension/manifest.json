@@ -1,1 +1,14 @@
-{"manifest_version":3,"name":"Nudge — Opportunity Clipper","version":"0.1.0","description":"Capture an opportunity’s page title and source URL for your Nudge workspace.","permissions":["activeTab"],"action":{"default_popup":"popup.html"}}
+{
+  "manifest_version": 3,
+  "name": "Nudge — Autonomous Outreach",
+  "version": "0.2.0",
+  "description": "Research contacts, manage personalized outreach, and follow conversations from your Nudge account.",
+  "permissions": ["identity", "storage", "alarms", "notifications", "activeTab", "scripting"],
+  "host_permissions": ["http://localhost:3000/*", "https://*.auth0.com/*"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "action": { "default_popup": "popup.html", "default_title": "Nudge" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "options_page": "options.html",
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'" },
+  "icons": { "128": "icon.png" }
+}
