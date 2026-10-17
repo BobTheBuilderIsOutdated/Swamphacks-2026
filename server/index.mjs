@@ -1,17 +1,5 @@
-import { configuration } from './config.mjs';
-import { vault as createVault } from './crypto.mjs';
-import { database } from './db.mjs';
-import { intelligence } from './ai.mjs';
-import { gmail } from './gmail.mjs';
-import { scrape } from './web.mjs';
-import { engine as createEngine } from './engine.mjs';
-import { application } from './app.mjs';
-
-const config = configuration();
-const db = await database(config.databaseUrl);
-const vault = createVault(config.encryptionKey), ai = intelligence(config), mail = gmail(config, db, vault);
-const engine = createEngine({ db, vault, ai, mail, scrape, config });
-const app = application({ db, vault, ai, mail, engine, scrape, config });
+import { runtime } from './runtime.mjs';
+const { app, db, engine, config } = await runtime();
 const server = app.listen(config.port, () => console.log(`Nudge: ${config.appUrl}`));
 const timer = config.workerEnabled ? setInterval(() => engine.tick().catch(error => console.error('Worker failed:', error.name)), config.workerInterval * 1000) : null;
 timer?.unref();
