@@ -3,6 +3,10 @@ import { createAuth0Client } from '@auth0/auth0-spa-js';
 export const extension = Boolean(globalThis.chrome?.runtime?.id);
 let auth, config;
 export async function initialize() {
+  if (document.querySelector('meta[name="nudge-hosting"]')?.content === 'github-pages') {
+    config = { hosting: 'github-pages', appUrl: new URL('.', location.href).href.replace(/\/$/, ''), readiness: { auth0: false, encryption: false, gemini: false, gmail: false, sending: false } };
+    return config;
+  }
   if (extension) {
     const result = await chrome.runtime.sendMessage({ type: 'config' });
     if (result.error) throw new Error(result.error);

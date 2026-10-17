@@ -15,3 +15,4 @@ coverage/
 public/assets/
 public/nudge-extension.zip
 extension/build/
+pages-dist/
