@@ -179,7 +179,8 @@ try {
   }
  } catch (error) {
   const accountDeleted = error.message.includes('This Nudge account has been deleted');
-  $('#app').innerHTML = `<div class="setup"><h1>${accountDeleted ? 'Your account was deleted.' : 'Let’s reconnect.'}</h1><p class="muted">${accountDeleted ? 'Your previous Nudge data has been removed. Sign out to end this session. Use a new account, or contact the server owner if Auth0 deletion was incomplete.' : esc(error.message)}</p>${accountDeleted ? '<button class="primary" id="recovery-signout">Sign out</button>' : '<button class="secondary" id="reload">Try again</button>'}${extension ? '<button class="secondary" id="options">Server settings</button>' : ''}</div>`;
+  $('#app').innerHTML = `<div class="setup"><h1>${accountDeleted ? 'Your account was deleted.' : 'Let’s reconnect.'}</h1><p class="muted">${accountDeleted ? 'Your previous Nudge data has been removed. You can create a new empty account with this login. If asked, sign out and sign in again first.' : esc(error.message)}</p>${accountDeleted ? '<button class="primary" id="recreate-account">Create new empty account</button><button class="secondary" id="recovery-signout">Sign out</button>' : '<button class="secondary" id="reload">Try again</button>'}${extension ? '<button class="secondary" id="options">Server settings</button>' : ''}</div>`;
+  if ($('#recreate-account')) $('#recreate-account').onclick = e => action(e.target, async () => { await api('/account/recreate', { method: 'POST', body: { confirm: 'CREATE' } }); await dashboard(); });
   if ($('#recovery-signout')) $('#recovery-signout').onclick = e => action(e.target, async () => { clearTimeout(refreshTimer); await logout(); });
   if ($('#reload')) $('#reload').onclick = () => location.reload();
   if ($('#options')) $('#options').onclick = () => chrome.runtime.openOptionsPage();

@@ -49,3 +49,21 @@ test('Gmail revocation failure does not retain local credentials or stop Auth0 d
  const r=await request(f.app).delete('/api/account/data').set('x-test-user','user-a').send({confirm:'DELETE'});
  assert.equal(r.status,200);assert.equal(r.body.auth0Deleted,true);assert.deepEqual(removed,['user-a']);assert.match(r.body.warnings.join(' '),/Gmail/);assert.equal(await f.db.one('SELECT * FROM mailboxes'),undefined);
 });
+
+test('fresh login can explicitly recreate an empty account while old tokens remain blocked', async t => {
+ const f=await fixture();t.after(()=>f.db.close());await f.seed();await f.seed('user-b');
+ await request(f.app).delete('/api/account/data').set('x-test-user','user-a').send({confirm:'DELETE'});
+ const stale=await request(f.app).post('/api/account/recreate').set('x-test-user','user-a').send({confirm:'CREATE'});
+ assert.equal(stale.status,401);
+ const issued=String(Math.floor(Date.now()/1000)+2);
+ const missing=await request(f.app).post('/api/account/recreate').set('x-test-user','user-a').set('x-test-iat',issued).send({});
+ assert.equal(missing.status,400);
+ const fresh=await request(f.app).post('/api/account/recreate').set('x-test-user','user-a').set('x-test-iat',issued).send({confirm:'CREATE',subject:'user-b'});
+ assert.equal(fresh.status,200);
+ const dashboard=await request(f.app).get('/api/dashboard').set('x-test-user','user-a').set('x-test-iat',issued);
+ assert.equal(dashboard.status,200);assert.equal(dashboard.body.profile,null);assert.deepEqual(dashboard.body.campaigns,[]);assert.equal(dashboard.body.mailbox,null);
+ assert.equal((await request(f.app).get('/api/dashboard').set('x-test-user','user-a')).status,401);
+ assert.ok(await f.db.one("SELECT profile FROM accounts WHERE subject='user-b'"));
+ await request(f.app).delete('/api/account/data').set('x-test-user','user-a').set('x-test-iat',issued).send({confirm:'DELETE'});
+ assert.equal((await request(f.app).get('/api/dashboard').set('x-test-user','user-a').set('x-test-iat',issued)).status,401);
+});

@@ -41,7 +41,7 @@ export async function fixture(overrides = {}, identity) {
   };
   const scrape = async () => ({ emails: ['researcher@example.org'], text: 'Test Researcher. We build research tools.', title: 'Example Lab' });
   const engine = createEngine({ db, vault, ai, mail, scrape, config });
-  const authenticate = (req, res, next) => { if (!req.headers['x-test-user']) return res.status(401).json({ error: 'Test identity required' }); req.subject = req.headers['x-test-user']; next(); };
+  const authenticate = (req, res, next) => { if (!req.headers['x-test-user']) return res.status(401).json({ error: 'Test identity required' }); req.subject = req.headers['x-test-user']; req.tokenIssuedAt = Number(req.headers['x-test-iat'] || 0); next(); };
   const app = application({ db, vault, ai, mail, engine, scrape, config, authenticate, ...(identity ? { identity } : {}) });
   async function seed(subject = 'user-a', settings = {}) {
     await db.query('INSERT INTO accounts(subject,profile,extension_seen_at) VALUES($1,$2,now()) ON CONFLICT(subject) DO NOTHING', [subject, vault.seal(profile, subject)]);
