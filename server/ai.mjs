@@ -16,7 +16,17 @@ export function intelligence(config) {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': config.geminiKey },
       body: JSON.stringify(body), signal: AbortSignal.timeout(90000),
     });
-    if (!response.ok) throw new Error(`Gemini request failed (${response.status}); check model access and quota.`);
+    if (!response.ok) {
+      // Never relay provider bodies: they may echo document text or credentials.
+      const messages = {
+        400: 'Gemini rejected the request. Check the API key and model configuration.',
+        401: 'Gemini could not authenticate. Check GEMINI_API_KEY in Vercel.',
+        403: 'Gemini access was denied. Check API key restrictions and model access.',
+        404: 'The configured Gemini model is unavailable. Set GEMINI_MODEL to gemini-2.5-flash and redeploy.',
+        429: 'Gemini quota or rate limit reached. Check your Google AI Studio quota before retrying.',
+      };
+      throw Object.assign(new Error(messages[response.status] || 'Gemini is temporarily unavailable. Please try again later.'), { status: 502 });
+    }
     const result = await response.json(), candidate = result.candidates?.[0];
     const text = candidate?.content?.parts?.filter(p => p.text && !p.thought).map(p => p.text).join('\n');
     if (!text) throw new Error('Gemini returned no usable result.');
