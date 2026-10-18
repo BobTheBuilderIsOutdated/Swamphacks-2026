@@ -265,16 +265,19 @@ export function application({ db, vault, ai, mail, engine, scrape, config, ident
   });
   app.delete('/api/account/data', async (req, res) => {
     requireValue(req.body.confirm === 'DELETE', 'Type DELETE to remove your Nudge data.');
-    const removeIdentity = await identity.prepare();
+    const warnings = [];
+    let auth0Deleted = false;
     const completed = await db.exclusive(async () => {
       await db.query("UPDATE campaigns SET status='paused' WHERE subject=$1", [req.subject]);
-      await mail.revoke(req.subject);
-      await removeIdentity(req.subject);
+      try { await mail.revoke(req.subject); }
+      catch { warnings.push('Gmail access could not be revoked remotely. Remove Nudge from your Google account connections. Stored Gmail credentials have been deleted.'); }
+      try { const removeIdentity = await identity.prepare(); await removeIdentity(req.subject); auth0Deleted = true; }
+      catch { warnings.push('Your Nudge data was deleted, but your Auth0 account could not be deleted. The server owner must check Auth0 Management API configuration and finish removing that account.'); }
       await db.query('INSERT INTO deleted_identities(digest) VALUES($1) ON CONFLICT DO NOTHING', [hash(req.subject)]);
       await db.query('DELETE FROM accounts WHERE subject=$1', [req.subject]);
     });
     requireValue(completed, 'A worker is finishing. Retry account deletion shortly.', 409);
-    res.json({ ok: true });
+    res.json({ ok: true, dataDeleted: true, auth0Deleted, warnings });
   });
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown API route.' }));
   app.use(express.static('public', { etag: true }));

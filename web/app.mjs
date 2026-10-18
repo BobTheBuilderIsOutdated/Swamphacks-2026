@@ -140,7 +140,7 @@ function account() {
   $('#extension').onclick = extension ? e => action(e.target, async () => { await api('/extension/heartbeat', { method: 'POST' }); await dashboard(); }) : extensionInstructions;
   $('#save-settings').onclick = () => { const enabled = $('#auto').checked; modal(enabled ? 'Authorize future campaigns automatically?' : 'Require authorization for each campaign?', `<p class="muted">${enabled ? 'New campaigns can research, send, and reply under their configured settings without another start confirmation. This permission persists until you turn it off.' : 'New campaigns will wait for you to authorize them. Active campaigns will continue until paused.'}</p><div class="modal-actions"><button class="primary" id="confirm-setting">Confirm preference</button></div>`); $('#confirm-setting').onclick = e => action(e.target, async () => { await api('/settings', { method: 'POST', body: { autoAuthorize: enabled, acknowledged: true } }); $('#modal').close(); await dashboard(); }); };
   $('#disconnect').onclick = () => { modal('Disconnect Gmail?', '<p class="muted">This pauses campaigns and revokes Nudge’s mailbox access.</p><div class="modal-actions"><button class="primary" id="confirm-disconnect">Disconnect</button></div>'); $('#confirm-disconnect').onclick = e => action(e.target, async () => { await api('/gmail', { method: 'DELETE' }); $('#modal').close(); await dashboard(); }); };
-  $('#delete-data').onclick = () => { modal('Delete your Nudge account?', '<p class="muted">This permanently deletes your Nudge profile, campaigns, data, and Auth0 account. This cannot be undone. Your Google account and Gmail messages remain.</p><label class="field">Type DELETE<input id="delete-confirm"></label><div class="modal-actions"><button class="primary" id="confirm-delete">Delete data</button></div>'); $('#confirm-delete').onclick = e => action(e.target, async () => { await api('/account/data', { method: 'DELETE', body: { confirm: $('#delete-confirm').value } }); $('#modal').close(); clearTimeout(refreshTimer); await logout(); }); };
+  $('#delete-data').onclick = () => { modal('Delete your Nudge account?', '<p class="muted">This permanently deletes your Nudge profile, campaigns, and stored connections. We also attempt to delete your Auth0 account; if that fails, your Nudge data is still deleted and we show what remains. This cannot be undone. Your Google account and Gmail messages remain.</p><label class="field">Type DELETE<input id="delete-confirm"></label><div class="modal-actions"><button class="primary" id="confirm-delete">Delete data</button></div>'); $('#confirm-delete').onclick = e => action(e.target, async () => { const result = await api('/account/data', { method: 'DELETE', body: { confirm: $('#delete-confirm').value } }); sessionStorage.setItem('nudge-deletion-result', JSON.stringify(result)); $('#modal').close(); clearTimeout(refreshTimer); await logout(); }); };
   $('#signout-mobile').onclick = () => action($('#signout-mobile'), async () => { clearTimeout(refreshTimer); await logout(); });
 }
 function extensionInstructions() {
@@ -150,7 +150,13 @@ function extensionInstructions() {
 function signedOut() {
   clearTimeout(refreshTimer);
   $('#app').innerHTML = '<div class="setup"><a class="brand" href="./">nudge<span>↗</span></a><h1>You’re signed out.</h1><p class="muted">This session has ended. Signing out does not pause existing campaigns.</p><button class="primary" id="return-login">Sign in again</button></div>';
-  $('#return-login').onclick = e => action(e.target, async () => { sessionStorage.removeItem('nudge-signed-out'); config = await initialize(); await openWorkspace(); });
+  const deletion = JSON.parse(sessionStorage.getItem('nudge-deletion-result') || 'null');
+  if (deletion?.dataDeleted) {
+    const result = document.createElement('div'); result.className = deletion.warnings?.length ? 'campaign-warning' : 'note'; result.setAttribute('role', 'alert');
+    result.textContent = ['Your Nudge data has been deleted.', ...(deletion.warnings || [])].join(' ');
+    $('.setup').insertBefore(result, $('#return-login'));
+  }
+  $('#return-login').onclick = e => action(e.target, async () => { sessionStorage.removeItem('nudge-signed-out'); sessionStorage.removeItem('nudge-deletion-result'); config = await initialize(); await openWorkspace(); });
 }
 try {
   if (sessionStorage.getItem('nudge-signed-out')) signedOut();
