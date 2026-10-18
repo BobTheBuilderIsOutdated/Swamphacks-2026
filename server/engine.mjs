@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { conversation } from './gmail.mjs';
-import { draftProblems } from './contracts.mjs';
+import { draftProblems, matchesTarget } from './contracts.mjs';
 
 const activeLead = status => ['active', 'positive'].includes(status);
 const elapsedDays = date => (Date.now() - new Date(date).getTime()) / 86400000;
@@ -126,11 +126,17 @@ export function engine({ db, vault, ai, mail, scrape, config }) {
 
   async function discover(campaign, profile) {
     if (campaign.researched_at && Date.now() - new Date(campaign.researched_at).getTime() < 30 * 60000) return;
+    if (campaign.goal.target && await db.one('SELECT id FROM leads WHERE campaign_id=$1', [campaign.id])) return;
     const existing = (await db.query('SELECT email FROM leads WHERE subject=$1', [campaign.subject])).rows.map(r => r.email);
     const seedSources = (await db.query("SELECT detail FROM events WHERE campaign_id=$1 AND kind='research_source_added' ORDER BY created_at", [campaign.id])).rows.map(r => r.detail);
+    if (campaign.goal.target) {
+      const page = await scrape(campaign.goal.target.sourceUrl);
+      seedSources.push({ url: page.url, title: page.title, excerpt: page.text.slice(0, 10000) });
+    }
     const research = await ai.research(profile, campaign.goal, campaign.cursor, existing, seedSources);
     for (const candidate of research.leads) {
-      if (!(campaign.goal.remote && candidate.remote) && (candidate.distanceMiles === null || candidate.distanceMiles > campaign.goal.radiusMiles)) continue;
+      if (!matchesTarget(candidate, campaign.goal.target)) continue;
+      if (!campaign.goal.target && !(campaign.goal.remote && candidate.remote) && (candidate.distanceMiles === null || candidate.distanceMiles > campaign.goal.radiusMiles)) continue;
       if (existing.includes(candidate.email.toLowerCase())) continue;
       try {
         const contact = await scrape(candidate.contactSource);
@@ -147,7 +153,10 @@ export function engine({ db, vault, ai, mail, scrape, config }) {
         const id = randomUUID();
         const result = await db.query(`INSERT INTO leads(id,subject,campaign_id,email,research) VALUES($1,$2,$3,$4,$5)
           ON CONFLICT(subject,email) DO NOTHING RETURNING id`, [id, campaign.subject, campaign.id, candidate.email.toLowerCase(), JSON.stringify({ ...candidate, sources, verifiedAt: new Date().toISOString() })]);
-        if (result.rows.length) await event(campaign, 'lead_researched', { name: candidate.name, organization: candidate.organization }, { id });
+        if (result.rows.length) {
+          await event(campaign, 'lead_researched', { name: candidate.name, organization: candidate.organization }, { id });
+          if (campaign.goal.target) break;
+        }
       } catch {
         await event(campaign, 'source_unavailable', { url: candidate.contactSource });
       }

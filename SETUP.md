@@ -103,3 +103,18 @@ The public website is hosted at https://bobthebuilderisoutdated.github.io/Swamph
 
 To update this deployment, run `node scripts/build-pages.mjs` and publish the contents of `pages-dist/` to the root of `gh-pages`. Keep backend source on `feat/autonomous-outreach`. The standard `npm run build` remains the full server/extension build.
 
+
+
+## Permanent Nudge account deletion
+
+Create a server-only Auth0 Machine to Machine application authorized for the Auth0 Management API with only `delete:users`. Set `AUTH0_MANAGEMENT_CLIENT_ID` and `AUTH0_MANAGEMENT_CLIENT_SECRET` in Vercel Production, using the same tenant as `AUTH0_DOMAIN`, then redeploy. Never put this secret in an extension or browser configuration. See https://auth0.com/docs/manage-users/user-accounts/manage-users-using-the-management-api.
+
+The account deletion dialog deletes the authenticated user's Nudge Auth0 user and local profile/campaign data, and revokes Gmail access. It does not delete their Google account or Gmail messages. Missing configuration prevents deletion; provider failures leave campaigns paused and allow retry. A hash of the deleted Auth0 subject remains to reject old bearer tokens and prevent automatic account recreation. That same Auth0 subject cannot be reused in Nudge; signing up with a newly issued Auth0 subject creates a separate account. Use a separate test identity to verify deletion, never a real demo account. Auth0 deletion cannot be rolled back with a code rollback.
+
+## Single-person research
+
+Use **Research one person** on Overview or Campaigns. Supply the exact professional name, organization, public professional page, and your actual outreach objective. Only one verified contact can be added; unrelated people are rejected and missing public email evidence is not guessed. Name/organization matching is conservative: spelling differences may produce no result. Geographic radius is not applied to an explicitly named person. Every email requires review, the campaign starts paused, and the global sending switch still applies. This is public professional-source research, not private-account access.
+
+## Rollback for this change
+
+The previous UI and extension code is commit `2cd6003`. Redeploy that revision to roll back this code. The new `deleted_identities` table is additive and can remain. Rolling back to older code also removes its old-token rejection, so do not roll back after deleting real accounts without retaining that check. Keep `EMAIL_SENDING_ENABLED=false` for the hackathon demo.

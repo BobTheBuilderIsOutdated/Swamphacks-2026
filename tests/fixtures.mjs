@@ -11,7 +11,7 @@ export const leadResearch = { name: 'Test Researcher', email: 'researcher@exampl
   fit: 'Python research', matchedSkills: ['Python'], angle: 'Research tools', contactSource: 'https://example.org/team', sources: [{ url: 'https://example.org/team', title: 'Example Lab', excerpt: 'We build research tools.' }] };
 export const goal = campaignSchema.parse({ name: 'Test campaign', objective: 'Find a research position', role: 'research', sectors: 'Computer science', location: 'Gainesville', radiusMiles: 50, remote: false, mode: 'autonomous', positiveMode: 'continue' });
 
-export async function fixture(overrides = {}) {
+export async function fixture(overrides = {}, identity) {
   const db = await database(null, 'memory://'), vault = createVault(Buffer.alloc(32, 7).toString('base64'));
   const config = { appUrl: 'http://localhost:3000', sendingEnabled: true, authDomain: 'example.auth0.com', clientId: 'client', audience: 'api', extensionClientId: 'native', extensionOrigins: ['chrome-extension://test'],
     encryptionKey: Buffer.alloc(32, 7).toString('base64'), geminiKey: 'fixture', googleClientId: 'fixture', googleSecret: 'fixture', cronSecret: 'test-secret', ...overrides };
@@ -40,7 +40,7 @@ export async function fixture(overrides = {}) {
   const scrape = async () => ({ emails: ['researcher@example.org'], text: 'Test Researcher. We build research tools.', title: 'Example Lab' });
   const engine = createEngine({ db, vault, ai, mail, scrape, config });
   const authenticate = (req, res, next) => { if (!req.headers['x-test-user']) return res.status(401).json({ error: 'Test identity required' }); req.subject = req.headers['x-test-user']; next(); };
-  const app = application({ db, vault, ai, mail, engine, scrape, config, authenticate });
+  const app = application({ db, vault, ai, mail, engine, scrape, config, authenticate, ...(identity ? { identity } : {}) });
   async function seed(subject = 'user-a', settings = {}) {
     await db.query('INSERT INTO accounts(subject,profile,extension_seen_at) VALUES($1,$2,now()) ON CONFLICT(subject) DO NOTHING', [subject, vault.seal(profile, subject)]);
     await db.query('INSERT INTO mailboxes(subject,email,secrets) VALUES($1,$2,$3) ON CONFLICT(subject) DO NOTHING', [subject, `${subject}@example.org`, vault.seal({ refresh_token: 'fixture' }, subject)]);

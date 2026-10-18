@@ -9,7 +9,13 @@ export const campaignSchema = z.object({
   dailyLimit: z.number().int().min(1).max(200).default(20),
   followupDays: z.number().int().min(2).max(30).default(5),
   maxFollowups: z.number().int().min(0).max(5).default(2),
+  target: z.object({ name: z.string().trim().min(2).max(150), organization: z.string().trim().min(2).max(200), sourceUrl: z.string().url().refine(v => /^https?:\/\//.test(v), 'Use a public HTTP or HTTPS page.') }).optional(),
 });
+export function matchesTarget(candidate, target) {
+  if (!target) return true;
+  const normalize = value => value.normalize('NFKC').trim().toLocaleLowerCase('en').replace(/\s+/g, ' ');
+  return normalize(candidate.name) === normalize(target.name) && normalize(candidate.organization) === normalize(target.organization);
+}
 export const profileSchema = z.object({
   name: z.string().min(1), summary: z.string(), education: z.array(z.string()),
   skills: z.array(z.string()), experiences: z.array(z.string()), interests: z.array(z.string()),
