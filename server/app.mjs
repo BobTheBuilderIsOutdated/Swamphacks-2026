@@ -1,6 +1,5 @@
 import express from 'express';
 import multer from 'multer';
-import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -19,6 +18,7 @@ export async function extractDocument(file) {
   let text;
   if (/\.pdf$/i.test(name)) {
     requireValue(file.buffer.subarray(0, 5).toString() === '%PDF-', 'Invalid PDF file.');
+    const { PDFParse } = await import('pdf-parse');
     const parser = new PDFParse({ data: new Uint8Array(file.buffer) });
     try { text = (await parser.getText()).text; } finally { await parser.destroy(); }
   } else if (/\.docx$/i.test(name)) {
