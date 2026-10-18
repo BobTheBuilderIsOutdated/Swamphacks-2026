@@ -1,5 +1,6 @@
-import { createAuth0Client } from '@auth0/auth0-spa-js';
+import { Auth0Client } from '@auth0/auth0-spa-js';
 import { readResponse } from './response.mjs';
+import { startAuthSession } from './auth-session.mjs';
 
 export const extension = Boolean(globalThis.chrome?.runtime?.id);
 let auth, config;
@@ -13,16 +14,9 @@ export async function initialize() {
     if (result.error) throw new Error(result.error);
     config = result.config;
   } else {
-    config = await readResponse(await fetch('/api/config'));
+    config = await readResponse(await fetch('/api/config', { signal: AbortSignal.timeout(15000) }));
     if (config.readiness.auth0) {
-      auth = await createAuth0Client({ domain: config.authDomain, clientId: config.clientId,
-        authorizationParams: { audience: config.audience, redirect_uri: `${location.origin}/auth/callback`, scope: 'openid profile email' },
-        cacheLocation: 'memory',
-      });
-      const callbackParams = new URLSearchParams(location.search);
-      if (location.pathname === '/auth/callback' && (callbackParams.has('code') || callbackParams.has('error'))) {
-        await auth.handleRedirectCallback(); history.replaceState({}, '', '/dashboard');
-      }
+      auth = await startAuthSession(Auth0Client, config, location, history);
     }
   }
   return config;
