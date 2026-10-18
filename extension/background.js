@@ -1,12 +1,8 @@
+import { loadServerConfig } from './config.js';
 const bytes = size => crypto.getRandomValues(new Uint8Array(size));
 const b64 = value => btoa(String.fromCharCode(...value)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 async function serverConfig() {
-  const { apiBase = 'http://localhost:3000' } = await chrome.storage.local.get('apiBase');
-  const response = await fetch(`${apiBase}/api/config`);
-  if (!response.ok) throw new Error('Nudge server is unavailable. Check extension settings.');
-  const config = await response.json();
-  if (new URL(config.appUrl).origin !== new URL(apiBase).origin) throw new Error('Server APP_URL does not match the configured address.');
-  return config;
+  return loadServerConfig(chrome.storage.local);
 }
 async function session() {
   const { auth } = await chrome.storage.session.get('auth');
@@ -14,7 +10,7 @@ async function session() {
 }
 async function login() {
   const config = await serverConfig();
-  if (!config.extensionClientId || !config.authDomain) throw new Error('Configure the Auth0 Native application for the extension.');
+  if (!config.extensionClientId || !config.authDomain) throw new Error('Extension sign-in is not enabled by the Nudge administrator yet. You can continue using the website.');
   const verifier = b64(bytes(32)), state = b64(bytes(32));
   const challenge = b64(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
   const redirectUri = chrome.identity.getRedirectURL('auth0');
@@ -30,7 +26,8 @@ async function login() {
   const tokens = await response.json();
   if (!tokens.access_token || !tokens.expires_in) throw new Error('Auth0 did not return a usable access token.');
   await chrome.storage.session.set({ auth: { token: tokens.access_token, expiresAt: Date.now() + tokens.expires_in * 1000 }, notified: [] });
-  await call('/extension/heartbeat', { method: 'POST' });
+  try { await call('/extension/heartbeat', { method: 'POST' }); }
+  catch (error) { await chrome.storage.session.remove('auth'); throw error; }
   await chrome.alarms.create('nudge-check', { periodInMinutes: 1 });
   return { ok: true };
 }

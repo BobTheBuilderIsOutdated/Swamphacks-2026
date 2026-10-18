@@ -1,12 +1,17 @@
-const { apiBase = 'http://localhost:3000' } = await chrome.storage.local.get('apiBase');
+import { DEFAULT_SERVER, serverOrigin } from './config.js';
+const { apiBase = DEFAULT_SERVER } = await chrome.storage.local.get('apiBase');
 document.querySelector('#server').value = apiBase;
 document.querySelector('#identity').textContent = `Extension origin: chrome-extension://${chrome.runtime.id} · Auth0 callback: ${chrome.identity.getRedirectURL('auth0')}`;
+document.querySelector('#reset').onclick = async () => {
+  await chrome.storage.local.remove('apiBase');
+  await chrome.storage.session.clear();
+  document.querySelector('#server').value = DEFAULT_SERVER;
+  document.querySelector('#status').textContent = 'Connected to the standard Nudge server. Sign in from the extension.';
+};
 document.querySelector('#settings-form').onsubmit = async event => {
   event.preventDefault();
   try {
-    const url = new URL(document.querySelector('#server').value);
-    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))) throw new Error('Use HTTPS, or localhost for local development.');
-    if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('Enter only the server origin, without paths or credentials.');
+    const url = new URL(serverOrigin(document.querySelector('#server').value));
     const granted = await chrome.permissions.request({ origins: [`${url.origin}/*`] });
     if (!granted) throw new Error('Server permission was not granted.');
     await chrome.storage.local.set({ apiBase: url.origin }); await chrome.storage.session.clear();

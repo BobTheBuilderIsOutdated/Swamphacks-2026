@@ -1,14 +1,39 @@
 {
   "manifest_version": 3,
   "name": "Nudge — Autonomous Outreach",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Research contacts, manage personalized outreach, and follow conversations from your Nudge account.",
-  "permissions": ["identity", "storage", "alarms", "notifications", "activeTab", "scripting"],
-  "host_permissions": ["http://localhost:3000/*", "https://*.auth0.com/*"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
-  "action": { "default_popup": "popup.html", "default_title": "Nudge" },
-  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": [
+    "identity",
+    "storage",
+    "alarms",
+    "notifications",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://nudge-alpha-mocha.vercel.app/*",
+    "https://*.auth0.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Nudge"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "options_page": "options.html",
-  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'" },
-  "icons": { "128": "icon.png" }
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "icons": {
+    "128": "icon.png"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtB3O58wGOtqdXm02Odx0CsQ05xgk+uKWJKJXwzqE6HAGTqwCJh4anxcaeWkcqdDPRU/8W7qBDJ0EdLsjWIog0c75+f1PD7610mbE169M2PLJ4PqyIYDMOo1PCZZCpXCweInIzubZAs884t6F4I4dgkW49lcBO185Ve1ogGtTLS/CNPWdv8I3+8dhwvAEmb/IwZkg9BGYxCkHLyEfr+N/LKcFjU+ApTruYqxuA0dUmm4YgHxE5x1K5ADy+Vg0cRjhf66XgcNkJqOz3iXLL5yKiaYqEQtoA1dQ3Wog2P8n+sh8OFSV4n0um5wl6YwTzenEwIzhAKbO47AMvYOQapl9BQIDAQAB"
 }
