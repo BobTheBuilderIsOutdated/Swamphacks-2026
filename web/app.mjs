@@ -1,4 +1,4 @@
-import { initialize, signedIn, login, logout, api, extension } from './api.mjs';
+import { initialize, signedIn, login, logout, api, extension, demoMode } from './api.mjs';
 const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const date = value => new Date(value).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -53,6 +53,14 @@ async function dashboard() {
   document.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { current = b.dataset.nav; action(b, dashboard); });
   $('#logout').onclick = () => action($('#logout'), async () => { clearTimeout(refreshTimer); await logout(); }); $('#refresh').onclick = () => action($('#refresh'), dashboard);
   render();
+  if (demoMode) {
+    const controls = document.createElement('div'); controls.className = 'scenario-controls';
+    controls.innerHTML = `<span>${['Ready to research','Organizations shortlisted','Contacts shortlisted','Drafts ready','Replies received'][data.demoStage]}</span><button class="secondary" id="scenario-next">${data.demoStage < 4 ? 'Continue walkthrough' : 'Walkthrough complete'}</button><button class="secondary" id="scenario-reset">Start over</button><a href="/">Exit</a>`;
+    $('.content').prepend(controls);
+    $('#scenario-next').disabled = data.demoStage >= 4;
+    $('#scenario-next').onclick = e => action(e.target, async () => { await api('/run', {method:'POST'}); await dashboard(); });
+    $('#scenario-reset').onclick = e => action(e.target, async () => { await api('/demo/reset', {method:'POST'}); current='overview'; await dashboard(); });
+  }
   clearTimeout(refreshTimer); refreshTimer = setTimeout(() => { if (!$('#modal').open && ['overview', 'threads'].includes(current)) dashboard().catch(() => {}); }, 30000);
 }
 const head = (eyebrow, title, text, button = '') => `<div class="page-head"><div><span class="eyebrow">${eyebrow}</span><h1>${title}</h1><p>${text}</p></div>${button}</div>`;
@@ -75,7 +83,7 @@ function overview() {
     (!data.readiness.sending ? '<div class="note">Live sending is disabled on this server. Research and drafting can run; messages stay queued until sending is enabled.</div>' : '') +
     `<div class="stats"><div class="stat"><strong>${active}</strong><span>Active campaigns</span></div><div class="stat"><strong>${data.leads.length}</strong><span>Researched contacts</span></div><div class="stat"><strong>${data.sent}</strong><span>Emails sent</span></div><div class="stat"><strong>${positive.length}</strong><span>Promising or needs you</span></div></div><div class="split"><section class="panel"><div class="panel-header"><h3>Your next conversations</h3><span class="badge">${data.pending.length} to review</span></div>${positive.length ? threadRows(positive) : empty('Room for your next opportunity.', 'Promising replies will appear here as your campaigns progress.')}</section><section class="panel"><div class="panel-header"><h3>Behind the scenes</h3><button class="secondary" id="run">Run now</button></div>${data.events.length ? eventList(data.events.slice(0, 8)) : empty('Ready when you are.', 'Your research and outreach timeline will appear here.')}</section></div>`;
   $('#new').onclick = () => newCampaign(); $('#targeted').onclick = () => newCampaign(true); if ($('#finish')) $('#finish').onclick = () => { current = 'account'; dashboard(); };
-  $('#run').onclick = e => action(e.target, async () => { await api('/run', { method: 'POST' }); notice('Worker requested. The timeline will update as work completes.'); }); bindThreads();
+  $('#run').onclick = e => action(e.target, async () => { await api('/run', { method: 'POST' }); if (demoMode) { await dashboard(); return; } notice('Worker requested. The timeline will update as work completes.'); }); bindThreads();
 }
 function campaigns() {
   $('#content').innerHTML = head('A DIRECTION. THEN MOMENTUM.', 'Your campaigns.', 'Set your goal once. Let Nudge do the legwork.', '<div class="actions"><button class="secondary" id="targeted">Research one person</button><button class="primary" id="new">＋ New campaign</button></div>') +
@@ -89,6 +97,7 @@ function newCampaign(targeted = false) {
   $('#campaign-form').onsubmit = e => { e.preventDefault(); const form = e.target, fields = Object.fromEntries(new FormData(form));
     for (const key of ['radiusMiles', 'dailyLimit', 'followupDays', 'maxFollowups']) fields[key] = Number(fields[key]); fields.remote = form.elements.remote.checked;
     if (targeted) fields.target = { name: fields.targetName, organization: fields.targetOrganization, sourceUrl: fields.targetUrl };
+    if (fields.name.trim().toUpperCase() === 'DARTMOUTH-AI-2026') { location.href = '/?demo=DARTMOUTH-AI-2026'; return; }
     action(form.querySelector('button'), async () => { await api('/campaigns', { method: 'POST', body: fields }); $('#modal').close(); current = 'campaigns'; await dashboard(); notice('Campaign created.'); }); };
 }
 function campaignControl(id, command, button) {
@@ -108,7 +117,7 @@ function threads(campaignId) {
 async function openThread(id) {
   const thread = await api(`/threads/${id}`), lead = thread.lead;
   const drafts = thread.drafts.filter(d => d.content && ['review', 'needs_input', 'uncertain'].includes(d.status));
-  modal(esc(lead.research.name), `<p class="muted">${esc(lead.research.title)} · ${esc(lead.research.organization)}<br>${esc(lead.email)}</p><div class="actions"><button class="secondary" id="takeover">Take over this thread</button><button class="secondary" id="takeover-campaign">Take over entire campaign</button>${['handoff', 'closed'].includes(lead.status) ? '<button class="secondary" id="resume-thread">Resume automation</button>' : ''}</div><div class="note">${esc(lead.research.fit)}</div><details><summary class="small">Research & sources</summary>${lead.research.sources.map(s => `<div class="source"><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title || s.url)} ↗</a><q>${esc(s.excerpt)}</q></div>`).join('')}</details>${thread.mailboxError ? `<p class="note error">${esc(thread.mailboxError)}</p>` : ''}<h3 style="margin-top:25px">Conversation</h3>${thread.history.map(m => `<article class="message"><header><b>${m.sent ? 'You' : esc(m.from)}</b><span>${date(m.date)}</span></header><div class="body">${esc(m.body)}</div></article>`).join('') || '<p class="small">No delivered messages yet. Confirmed mail is loaded directly from Gmail, not retained as a second inbox.</p>'}${drafts.map(d => `<section class="message"><h3>${d.status === 'uncertain' ? 'Delivery needs verification' : 'Your input is needed'}</h3><p class="small">${esc(d.content.problems?.join(' ') || d.content.reason)}</p>${d.status === 'uncertain' ? '<p class="note">Nudge will check Gmail for the original message. It will not automatically send it again.</p>' : `<form data-draft-form="${d.id}"><label class="field">Subject<input name="subject" required value="${esc(d.content.subject)}" ${lead.thread_id ? 'readonly' : ''}></label><label class="field">Message<textarea name="body" required rows="10">${esc(d.content.body)}</textarea></label><button class="primary">Approve this email</button></form>`}</section>`).join('')}<h3 style="margin-top:30px">Timeline</h3>${eventList(thread.events)}`);
+  modal(esc(lead.research.name), `<p class="muted">${esc(lead.research.title)} · ${esc(lead.research.organization)}<br>${esc(lead.email)}</p><div class="actions"><button class="secondary" id="takeover">Take over this thread</button><button class="secondary" id="takeover-campaign">Take over entire campaign</button>${['handoff', 'closed'].includes(lead.status) ? '<button class="secondary" id="resume-thread">Resume automation</button>' : ''}</div><div class="note">${esc(lead.research.fit)}</div><details><summary class="small">Research & sources</summary>${lead.research.sources.map(s => `<div class="source"><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title || s.url)} ↗</a><q>${esc(s.excerpt)}</q></div>`).join('')}</details>${thread.mailboxError ? `<p class="note error">${esc(thread.mailboxError)}</p>` : ''}<h3 style="margin-top:25px">Conversation</h3>${thread.history.map(m => `<article class="message"><header><b>${m.sent ? 'You' : esc(m.from)}</b><span>${date(m.date)}</span></header><div class="body">${esc(m.body)}</div></article>`).join('') || (demoMode ? '<p class="small">No delivered messages yet.</p>' : '<p class="small">No delivered messages yet. Confirmed mail is loaded directly from Gmail, not retained as a second inbox.</p>')}${drafts.map(d => `<section class="message"><h3>${d.status === 'uncertain' ? 'Delivery needs verification' : 'Your input is needed'}</h3><p class="small">${esc(d.content.problems?.join(' ') || d.content.reason)}</p>${d.status === 'uncertain' ? '<p class="note">Nudge will check Gmail for the original message. It will not automatically send it again.</p>' : `<form data-draft-form="${d.id}"><label class="field">Subject<input name="subject" required value="${esc(d.content.subject)}" ${lead.thread_id ? 'readonly' : ''}></label><label class="field">Message<textarea name="body" required rows="10">${esc(d.content.body)}</textarea></label><button class="primary">Approve this email</button></form>`}</section>`).join('')}<h3 style="margin-top:30px">Timeline</h3>${eventList(thread.events)}`);
   for (const [selector, pauseCampaign] of [['#takeover', false], ['#takeover-campaign', true]]) $(selector).onclick = e => action(e.target, async () => {
     await api(`/threads/${id}/control`, { method: 'POST', body: { status: 'handoff', pauseCampaign } });
     await openThread(id); notice(pauseCampaign ? 'Campaign paused. Continue conversations in Gmail.' : 'Automation stopped for this person. Continue in Gmail.');
@@ -159,11 +168,11 @@ function signedOut() {
   $('#return-login').onclick = e => action(e.target, async () => { sessionStorage.removeItem('nudge-signed-out'); sessionStorage.removeItem('nudge-deletion-result'); config = await initialize(); await openWorkspace(); });
 }
 try {
-  if (sessionStorage.getItem('nudge-signed-out')) signedOut();
+  if (!demoMode && sessionStorage.getItem('nudge-signed-out')) signedOut();
   else {
   config = await initialize();
-  if (extension || (config.hosting !== 'github-pages' && location.pathname !== '/')) {
-    if (await signedIn()) { if (extension) await api('/extension/heartbeat', { method: 'POST' }); await dashboard(); }
+  if (demoMode || extension || (config.hosting !== 'github-pages' && location.pathname !== '/')) {
+    if (await signedIn()) { if (extension && !demoMode) await api('/extension/heartbeat', { method: 'POST' }); await dashboard(); }
     else if (!config.readiness.auth0) setup();
     else { $('#app').innerHTML = '<div class="setup"><a class="brand">nudge<span>↗</span></a><h1>Your next chapter starts here.</h1><p class="muted">Sign in to your account to connect your résumé, mailbox, and campaigns.</p><button class="primary" id="login">Sign in with Auth0 ↗</button></div>'; $('#login').onclick = e => action(e.target, openWorkspace); }
   } else landing();

@@ -1,10 +1,18 @@
+import { createDemo, DEMO_PHRASE } from './demo.mjs';
 import { Auth0Client } from '@auth0/auth0-spa-js';
 import { readResponse } from './response.mjs';
 import { startAuthSession } from './auth-session.mjs';
 
 export const extension = Boolean(globalThis.chrome?.runtime?.id);
+export const demoMode = new URLSearchParams(globalThis.location?.search || '').get('demo') === DEMO_PHRASE;
+let scenario;
+if (demoMode) {
+  let saved; try { saved = JSON.parse(sessionStorage.getItem('nudge-dartmouth-scenario')); } catch {}
+  scenario = createDemo(saved, state => sessionStorage.setItem('nudge-dartmouth-scenario', JSON.stringify(state)));
+}
 let auth, config;
 export async function initialize() {
+  if (demoMode) return { appUrl: location.origin, readiness: { auth0:true, encryption:true, gemini:true, gmail:true, sending:false } };
   if (document.querySelector('meta[name="nudge-hosting"]')?.content === 'github-pages') {
     config = { hosting: 'github-pages', appUrl: new URL('.', location.href).href.replace(/\/$/, ''), readiness: { auth0: false, encryption: false, gemini: false, gmail: false, sending: false } };
     return config;
@@ -22,10 +30,12 @@ export async function initialize() {
   return config;
 }
 export async function signedIn() {
+  if (demoMode) return true;
   if (extension) return (await chrome.runtime.sendMessage({ type: 'session' })).authenticated;
   return Boolean(auth && await auth.isAuthenticated());
 }
 export async function login() {
+  if (demoMode) return;
   if (extension) {
     const result = await chrome.runtime.sendMessage({ type: 'login' });
     if (result.error) throw new Error(result.error);
@@ -35,6 +45,7 @@ export async function login() {
   await auth.loginWithRedirect();
 }
 export async function logout() {
+  if (demoMode) { location.href = '/'; return; }
   sessionStorage.setItem('nudge-signed-out', '1');
   try {
     if (extension) { await chrome.runtime.sendMessage({ type: 'logout' }); location.reload(); }
@@ -42,6 +53,7 @@ export async function logout() {
   } catch (error) { sessionStorage.removeItem('nudge-signed-out'); throw error; }
 }
 export async function api(route, { method = 'GET', body } = {}) {
+  if (demoMode) return scenario.request(route, { method, body });
   const token = extension ? (await chrome.runtime.sendMessage({ type: 'token' })).token : await auth.getTokenSilently();
   if (!token) throw new Error('Sign in again to continue.');
   const isForm = body instanceof FormData;
