@@ -42,7 +42,7 @@ export async function login() {
     return;
   }
   if (!auth) throw new Error('Auth0 needs to be configured before sign-in works.');
-  await auth.loginWithRedirect();
+  await auth.loginWithRedirect({ authorizationParams: { prompt: 'login' } });
 }
 export async function logout() {
   if (demoMode) { location.href = '/'; return; }
@@ -50,7 +50,12 @@ export async function logout() {
   try {
     if (extension) { await chrome.runtime.sendMessage({ type: 'logout' }); location.reload(); }
     else await auth.logout({ logoutParams: { returnTo: location.origin } });
-  } catch (error) { sessionStorage.removeItem('nudge-signed-out'); throw error; }
+  } catch (error) {
+    // Keep the local sign-out barrier even if remote logout is unavailable.
+    auth = undefined;
+    if (extension) location.reload();
+    else location.replace('/');
+  }
 }
 export async function api(route, { method = 'GET', body } = {}) {
   if (demoMode) return scenario.request(route, { method, body });

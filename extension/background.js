@@ -16,7 +16,7 @@ async function login() {
   const redirectUri = chrome.identity.getRedirectURL('auth0');
   const url = new URL(`https://${config.authDomain}/authorize`);
   url.search = new URLSearchParams({ response_type: 'code', client_id: config.extensionClientId,
-    redirect_uri: redirectUri, audience: config.audience, scope: 'openid profile email',
+    redirect_uri: redirectUri, audience: config.audience, scope: 'openid profile email', prompt: 'login',
     code_challenge: challenge, code_challenge_method: 'S256', state }).toString();
   const returned = new URL(await chrome.identity.launchWebAuthFlow({ url: url.href, interactive: true }));
   if (returned.origin + returned.pathname !== redirectUri || returned.searchParams.get('state') !== state || !returned.searchParams.get('code')) throw new Error('Sign-in response did not match this request.');
