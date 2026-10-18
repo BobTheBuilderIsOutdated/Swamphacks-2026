@@ -17,10 +17,10 @@ test('target discovery rejects substitutes and stops after one verified contact'
  await f.engine.tick(); assert.equal((await f.db.query('SELECT * FROM leads')).rows.length,1); assert.equal(f.sent.length,0);
  const lead = await f.db.one('SELECT research FROM leads'); assert.equal(lead.research.name,target.name);
 });
-test('missing deletion configuration preserves account data', async t => {
+test('missing Auth0 configuration deletes local data and reports partial completion', async t => {
  const f = await fixture(); t.after(() => f.db.close()); await f.seed();
  const r = await request(f.app).delete('/api/account/data').set('x-test-user','user-a').send({confirm:'DELETE'});
- assert.equal(r.status,503); assert.ok(await f.db.one('SELECT subject FROM accounts'));
+ assert.equal(r.status,200); assert.equal(r.body.dataDeleted,true); assert.equal(r.body.auth0Deleted,false); assert.match(r.body.warnings.join(' '),/Auth0/); assert.equal(await f.db.one('SELECT subject FROM accounts'),undefined); assert.equal(await f.db.one('SELECT subject FROM mailboxes'),undefined); assert.equal(await f.db.one('SELECT id FROM campaigns'),undefined);
 });
 test('deletion removes only caller and prevents stale tokens recreating their account', async t => {
  const removed=[]; const f=await fixture({}, {prepare:async()=>async subject=>removed.push(subject)}); t.after(()=>f.db.close());
@@ -31,13 +31,21 @@ test('deletion removes only caller and prevents stale tokens recreating their ac
  assert.ok(await f.db.one("SELECT * FROM accounts WHERE subject='user-b'"));
  assert.equal((await request(f.app).get('/api/dashboard').set('x-test-user','user-a')).status,401);
 });
-test('Auth0 failure pauses campaigns but retains data for retry',async t=>{
+test('Auth0 failure deletes local data and blocks stale tokens',async t=>{
  const f=await fixture({}, {prepare:async()=>async()=>{throw Object.assign(new Error('Unavailable'),{status:503});}});t.after(()=>f.db.close());await f.seed();
- assert.equal((await request(f.app).delete('/api/account/data').set('x-test-user','user-a').send({confirm:'DELETE'})).status,503);
- assert.ok(await f.db.one('SELECT * FROM accounts'));assert.equal((await f.db.one('SELECT status FROM campaigns')).status,'paused');
+ const r=await request(f.app).delete('/api/account/data').set('x-test-user','user-a').send({confirm:'DELETE'});
+ assert.equal(r.status,200); assert.equal(r.body.auth0Deleted,false); assert.equal(await f.db.one('SELECT * FROM accounts'),undefined); assert.equal(await f.db.one('SELECT status FROM campaigns'),undefined);
+ assert.equal((await request(f.app).get('/api/dashboard').set('x-test-user','user-a')).status,401);
 });
 test('Management API deletes encoded verified subject and accepts already deleted users',async()=>{
  const calls=[];const manager=identityManager({authDomain:'example.auth0.com',managementClientId:'id',managementSecret:'secret'},async(url,options)=>{calls.push({url,options});return calls.length===1?{ok:true,json:async()=>({access_token:'test'})}:{ok:false,status:404};});
  await (await manager.prepare())('google-oauth2|123');
  assert.equal(calls[1].url,'https://example.auth0.com/api/v2/users/google-oauth2%7C123');assert.equal(calls[1].options.method,'DELETE');
+});
+
+test('Gmail revocation failure does not retain local credentials or stop Auth0 deletion',async t=>{
+ const removed=[];const f=await fixture({}, {prepare:async()=>async subject=>removed.push(subject)});t.after(()=>f.db.close());await f.seed();
+ f.mail.revoke=async()=>{throw new Error('Offline');};
+ const r=await request(f.app).delete('/api/account/data').set('x-test-user','user-a').send({confirm:'DELETE'});
+ assert.equal(r.status,200);assert.equal(r.body.auth0Deleted,true);assert.deepEqual(removed,['user-a']);assert.match(r.body.warnings.join(' '),/Gmail/);assert.equal(await f.db.one('SELECT * FROM mailboxes'),undefined);
 });
