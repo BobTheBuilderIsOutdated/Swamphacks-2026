@@ -1,4 +1,5 @@
 import express from 'express';
+import { identityManager } from './identity.mjs';
 import multer from 'multer';
 import mammoth from 'mammoth';
 import { randomUUID } from 'node:crypto';
@@ -36,7 +37,7 @@ export async function extractDocument(file) {
   return { name, text };
 }
 
-export function application({ db, vault, ai, mail, engine, scrape, config, authenticate = authentication(config) }) {
+export function application({ db, vault, ai, mail, engine, scrape, config, identity = identityManager(config), authenticate = authentication(config) }) {
   const app = express();
   app.disable('x-powered-by');
   app.use((req, res, next) => {
@@ -82,6 +83,9 @@ export function application({ db, vault, ai, mail, engine, scrape, config, authe
   });
 
   app.use('/api', authenticate, async (req, _res, next) => {
+    const deleted = await db.one('SELECT digest FROM deleted_identities WHERE digest=$1', [hash(req.subject)]);
+    requireValue(!deleted || (req.method === 'DELETE' && req.path === '/account/data'), 'This Nudge account has been deleted. Sign out.', 401);
+    if (deleted) return next();
     await db.query('INSERT INTO accounts(subject) VALUES($1) ON CONFLICT(subject) DO NOTHING', [req.subject]);
     next();
   });
@@ -167,10 +171,11 @@ export function application({ db, vault, ai, mail, engine, scrape, config, authe
   });
   app.post('/api/campaigns', async (req, res) => {
     const goal = campaignSchema.parse(req.body), id = randomUUID();
+    if (goal.target) { goal.mode = 'review'; goal.positiveMode = 'handoff'; goal.dailyLimit = 1; }
     await db.query('INSERT INTO campaigns(id,subject,goal) VALUES($1,$2,$3)', [id, req.subject, JSON.stringify(goal)]);
     const account = await db.one('SELECT * FROM accounts WHERE subject=$1', [req.subject]);
     const ready = readiness(config);
-    if (account.auto_authorize && account.profile && account.extension_seen_at && ready.gemini && ready.encryption &&
+    if (!goal.target && account.auto_authorize && account.profile && account.extension_seen_at && ready.gemini && ready.encryption &&
         await db.one('SELECT subject FROM mailboxes WHERE subject=$1', [req.subject])) {
       await db.query("UPDATE campaigns SET status='active',authorized_at=now() WHERE id=$1", [id]);
       await db.event(req.subject, 'campaign_auto_authorized', {}, null, id);
@@ -260,9 +265,15 @@ export function application({ db, vault, ai, mail, engine, scrape, config, authe
   });
   app.delete('/api/account/data', async (req, res) => {
     requireValue(req.body.confirm === 'DELETE', 'Type DELETE to remove your Nudge data.');
-    await db.query("UPDATE campaigns SET status='paused' WHERE subject=$1", [req.subject]);
-    await mail.revoke(req.subject);
-    await db.query('DELETE FROM accounts WHERE subject=$1', [req.subject]);
+    const removeIdentity = await identity.prepare();
+    const completed = await db.exclusive(async () => {
+      await db.query("UPDATE campaigns SET status='paused' WHERE subject=$1", [req.subject]);
+      await mail.revoke(req.subject);
+      await removeIdentity(req.subject);
+      await db.query('INSERT INTO deleted_identities(digest) VALUES($1) ON CONFLICT DO NOTHING', [hash(req.subject)]);
+      await db.query('DELETE FROM accounts WHERE subject=$1', [req.subject]);
+    });
+    requireValue(completed, 'A worker is finishing. Retry account deletion shortly.', 409);
     res.json({ ok: true });
   });
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown API route.' }));

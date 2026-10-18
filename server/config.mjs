@@ -13,6 +13,7 @@ export function configuration(env = process.env, { validate = true } = {}) {
     model: env.GEMINI_MODEL || 'gemini-2.5-flash', googleClientId: env.GOOGLE_CLIENT_ID || '',
     googleSecret: env.GOOGLE_CLIENT_SECRET || '', sendingEnabled: env.EMAIL_SENDING_ENABLED === 'true',
     workerEnabled: env.WORKER_ENABLED !== 'false', workerInterval: Math.max(15, Number(env.WORKER_INTERVAL_SECONDS || 60)),
+    managementClientId: env.AUTH0_MANAGEMENT_CLIENT_ID || '', managementSecret: env.AUTH0_MANAGEMENT_CLIENT_SECRET || '',
     cronSecret: env.CRON_SECRET || '',
   };
 }

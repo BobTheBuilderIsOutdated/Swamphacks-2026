@@ -35,8 +35,11 @@ export async function login() {
   await auth.loginWithRedirect();
 }
 export async function logout() {
-  if (extension) { await chrome.runtime.sendMessage({ type: 'logout' }); location.reload(); }
-  else await auth.logout({ logoutParams: { returnTo: location.origin } });
+  sessionStorage.setItem('nudge-signed-out', '1');
+  try {
+    if (extension) { await chrome.runtime.sendMessage({ type: 'logout' }); location.reload(); }
+    else await auth.logout({ logoutParams: { returnTo: location.origin } });
+  } catch (error) { sessionStorage.removeItem('nudge-signed-out'); throw error; }
 }
 export async function api(route, { method = 'GET', body } = {}) {
   const token = extension ? (await chrome.runtime.sendMessage({ type: 'token' })).token : await auth.getTokenSilently();
