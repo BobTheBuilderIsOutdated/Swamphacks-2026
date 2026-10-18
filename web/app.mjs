@@ -177,7 +177,10 @@ try {
     else { $('#app').innerHTML = '<div class="setup"><a class="brand">nudge<span>↗</span></a><h1>Your next chapter starts here.</h1><p class="muted">Sign in to your account to connect your résumé, mailbox, and campaigns.</p><button class="primary" id="login">Sign in with Auth0 ↗</button></div>'; $('#login').onclick = e => action(e.target, openWorkspace); }
   } else landing();
   }
-} catch (error) {
-  $('#app').innerHTML = `<div class="setup"><h1>Let’s reconnect.</h1><p class="muted">${esc(error.message)}</p><button class="secondary" id="reload">Try again</button>${extension ? '<button class="secondary" id="options">Server settings</button>' : ''}</div>`;
-  $('#reload').onclick = () => location.reload(); if ($('#options')) $('#options').onclick = () => chrome.runtime.openOptionsPage();
+ } catch (error) {
+  const accountDeleted = error.message.includes('This Nudge account has been deleted');
+  $('#app').innerHTML = `<div class="setup"><h1>${accountDeleted ? 'Your account was deleted.' : 'Let’s reconnect.'}</h1><p class="muted">${accountDeleted ? 'Your previous Nudge data has been removed. Sign out to end this session. Use a new account, or contact the server owner if Auth0 deletion was incomplete.' : esc(error.message)}</p>${accountDeleted ? '<button class="primary" id="recovery-signout">Sign out</button>' : '<button class="secondary" id="reload">Try again</button>'}${extension ? '<button class="secondary" id="options">Server settings</button>' : ''}</div>`;
+  if ($('#recovery-signout')) $('#recovery-signout').onclick = e => action(e.target, async () => { clearTimeout(refreshTimer); await logout(); });
+  if ($('#reload')) $('#reload').onclick = () => location.reload();
+  if ($('#options')) $('#options').onclick = () => chrome.runtime.openOptionsPage();
 }
