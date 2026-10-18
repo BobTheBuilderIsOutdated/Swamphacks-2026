@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { conversation } from './gmail.mjs';
-import { draftProblems, matchesTarget } from './contracts.mjs';
+import { draftProblems, matchesTarget, organizationKey } from './contracts.mjs';
 
 const activeLead = status => ['active', 'positive'].includes(status);
 const elapsedDays = date => (Date.now() - new Date(date).getTime()) / 86400000;
@@ -133,9 +133,37 @@ export function engine({ db, vault, ai, mail, scrape, config }) {
       const page = await scrape(campaign.goal.target.sourceUrl);
       seedSources.push({ url: page.url, title: page.title, excerpt: page.text.slice(0, 10000) });
     }
-    const research = await ai.research(profile, campaign.goal, campaign.cursor, existing, seedSources);
+    const organizations = [];
+    if (!campaign.goal.target) {
+      await event(campaign, 'organization_research_started', { summary: 'Stage 1: finding organizations matching your sector and location.' });
+      const found = await ai.organizations(profile, campaign.goal, campaign.cursor, seedSources);
+      const seen = new Set();
+      for (const organization of found.organizations) {
+        if (seen.has(organizationKey(organization.name))) continue;
+        if (!(campaign.goal.remote && organization.remote) && (organization.distanceMiles === null || organization.distanceMiles > campaign.goal.radiusMiles)) continue;
+        try {
+          const sources = [];
+          for (const source of organization.sources) {
+            const page = await scrape(source.url);
+            const normalize = text => text.toLowerCase().replace(/\s+/g, ' ').trim();
+            if (normalize(source.excerpt) && normalize(page.text).includes(normalize(source.excerpt))) sources.push({ url: source.url, title: page.title, excerpt: source.excerpt });
+          }
+          if (!sources.length) continue;
+          const verified = { ...organization, sources };
+          if (!(await ai.verifyOrganization(verified, campaign.goal)).eligible) continue;
+          seen.add(organizationKey(organization.name)); organizations.push(verified);
+        } catch { await event(campaign, 'organization_source_unavailable', { url: organization.website }); }
+      }
+      // Persist the verified first-stage shortlist before any employee discovery.
+      await event(campaign, 'organizations_shortlisted', { summary: `${organizations.length} verified organizations shortlisted.`, organizations });
+    }
+    const research = !campaign.goal.target && !organizations.length
+      ? { leads: [], searchSummary: 'No organizations passed verification; employee research was skipped.', grounding: {} }
+      : await ai.research(profile, campaign.goal, campaign.cursor, existing, seedSources, organizations);
+    if (!campaign.goal.target && organizations.length) await event(campaign, 'employee_research_completed', { summary: 'Stage 2: checking employees against the verified organization shortlist.' });
     for (const candidate of research.leads) {
       if (!matchesTarget(candidate, campaign.goal.target)) continue;
+      if (!campaign.goal.target && !organizations.some(o => organizationKey(o.name) === organizationKey(candidate.organization))) continue;
       if (!campaign.goal.target && !(campaign.goal.remote && candidate.remote) && (candidate.distanceMiles === null || candidate.distanceMiles > campaign.goal.radiusMiles)) continue;
       if (existing.includes(candidate.email.toLowerCase())) continue;
       try {
@@ -149,7 +177,7 @@ export function engine({ db, vault, ai, mail, scrape, config }) {
           sources.push({ url: source.url, title: page.title, excerpt: source.excerpt });
         }
         if (!sources.length) continue;
-        if (!(await ai.verifyLead({ ...candidate, sources }, campaign.goal, contact.text)).eligible) continue;
+        if (!(await ai.verifyLead({ ...candidate, sources }, campaign.goal, contact.text, organizations.find(o => organizationKey(o.name) === organizationKey(candidate.organization)))).eligible) continue;
         const id = randomUUID();
         const result = await db.query(`INSERT INTO leads(id,subject,campaign_id,email,research) VALUES($1,$2,$3,$4,$5)
           ON CONFLICT(subject,email) DO NOTHING RETURNING id`, [id, campaign.subject, campaign.id, candidate.email.toLowerCase(), JSON.stringify({ ...candidate, sources, verifiedAt: new Date().toISOString() })]);

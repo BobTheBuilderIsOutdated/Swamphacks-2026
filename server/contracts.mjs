@@ -22,6 +22,12 @@ export const profileSchema = z.object({
   evidence: z.array(z.object({ fact: z.string(), document: z.string(), quote: z.string() })),
   writingStyle: z.object({ tone: z.string(), sentenceStyle: z.string(), greeting: z.string(), closing: z.string(), avoid: z.array(z.string()) }),
 });
+export const organizationSchema = z.object({ organizations: z.array(z.object({
+  name: z.string().trim().min(2), website: z.string().url(), location: z.string(),
+  distanceMiles: z.number().nonnegative().nullable(), remote: z.boolean(),
+  sectorFit: z.string().min(1), sources: z.array(z.object({ url: z.string().url(), title: z.string(), excerpt: z.string().min(1) })).min(1),
+})), searchSummary: z.string() });
+export const organizationKey = value => value.normalize('NFKC').trim().toLowerCase().replace(/\s+/g, ' ');
 export const researchSchema = z.object({ leads: z.array(z.object({
   name: z.string().min(1), email: z.string().email(), organization: z.string().min(1), title: z.string(),
   location: z.string(), distanceMiles: z.number().nonnegative().nullable(), remote: z.boolean(),
