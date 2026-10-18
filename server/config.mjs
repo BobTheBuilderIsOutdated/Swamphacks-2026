@@ -1,10 +1,11 @@
 export function configuration(env = process.env, { validate = true } = {}) {
   const production = env.NODE_ENV === 'production' || env.VERCEL === '1';
   const appUrl = (env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const databaseUrl = env.DATABASE_URL_UNPOOLED || env.DATABASE_URL;
   if (validate && production && !appUrl.startsWith('https://')) throw new Error('Production APP_URL must use HTTPS.');
-  if (validate && production && !env.DATABASE_URL) throw new Error('Production requires DATABASE_URL.');
+  if (validate && production && !databaseUrl) throw new Error('Production requires DATABASE_URL_UNPOOLED or DATABASE_URL.');
   return {
-    production, serverless: env.VERCEL === '1', appUrl, port: Number(env.PORT || 3000), databaseUrl: env.DATABASE_URL,
+    production, serverless: env.VERCEL === '1', appUrl, port: Number(env.PORT || 3000), databaseUrl,
     authDomain: env.AUTH0_DOMAIN || '', clientId: env.AUTH0_CLIENT_ID || '',
     extensionClientId: env.AUTH0_EXTENSION_CLIENT_ID || '', audience: env.AUTH0_AUDIENCE || '',
     extensionOrigins: (env.EXTENSION_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean),
