@@ -1,4 +1,5 @@
 import { createAuth0Client } from '@auth0/auth0-spa-js';
+import { readResponse } from './response.mjs';
 
 export const extension = Boolean(globalThis.chrome?.runtime?.id);
 let auth, config;
@@ -12,7 +13,7 @@ export async function initialize() {
     if (result.error) throw new Error(result.error);
     config = result.config;
   } else {
-    config = await (await fetch('/api/config')).json();
+    config = await readResponse(await fetch('/api/config'));
     if (config.readiness.auth0) {
       auth = await createAuth0Client({ domain: config.authDomain, clientId: config.clientId,
         authorizationParams: { audience: config.audience, redirect_uri: `${location.origin}/auth/callback`, scope: 'openid profile email' },
@@ -50,7 +51,5 @@ export async function api(route, { method = 'GET', body } = {}) {
     method, headers: { Authorization: `Bearer ${token}`, ...(!isForm && body ? { 'Content-Type': 'application/json' } : {}) },
     ...(body ? { body: isForm ? body : JSON.stringify(body) } : {}),
   });
-  const value = await response.json();
-  if (!response.ok) throw new Error(value.error || 'Request failed.');
-  return value;
+  return readResponse(response);
 }

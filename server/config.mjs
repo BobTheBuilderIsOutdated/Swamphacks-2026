@@ -1,8 +1,8 @@
-export function configuration(env = process.env) {
+export function configuration(env = process.env, { validate = true } = {}) {
   const production = env.NODE_ENV === 'production' || env.VERCEL === '1';
   const appUrl = (env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
-  if (production && !appUrl.startsWith('https://')) throw new Error('Production APP_URL must use HTTPS.');
-  if (production && !env.DATABASE_URL) throw new Error('Production requires DATABASE_URL.');
+  if (validate && production && !appUrl.startsWith('https://')) throw new Error('Production APP_URL must use HTTPS.');
+  if (validate && production && !env.DATABASE_URL) throw new Error('Production requires DATABASE_URL.');
   return {
     production, serverless: env.VERCEL === '1', appUrl, port: Number(env.PORT || 3000), databaseUrl: env.DATABASE_URL,
     authDomain: env.AUTH0_DOMAIN || '', clientId: env.AUTH0_CLIENT_ID || '',
@@ -14,6 +14,12 @@ export function configuration(env = process.env) {
     workerEnabled: env.WORKER_ENABLED !== 'false', workerInterval: Math.max(15, Number(env.WORKER_INTERVAL_SECONDS || 60)),
     cronSecret: env.CRON_SECRET || '',
   };
+}
+
+export function publicConfiguration(env = process.env) {
+  const config = configuration(env, { validate: false });
+  return { appUrl: config.appUrl, authDomain: config.authDomain, clientId: config.clientId,
+    extensionClientId: config.extensionClientId, audience: config.audience, readiness: readiness(config) };
 }
 
 export function readiness(config) {
