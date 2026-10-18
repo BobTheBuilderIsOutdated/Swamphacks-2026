@@ -83,12 +83,21 @@ export function application({ db, vault, ai, mail, engine, scrape, config, ident
   });
 
   app.use('/api', authenticate, async (req, _res, next) => {
-    const deleted = await db.one('SELECT digest FROM deleted_identities WHERE digest=$1', [hash(req.subject)]);
-    requireValue(!deleted || (req.method === 'DELETE' && req.path === '/account/data'), 'This Nudge account has been deleted. Sign out.', 401);
-    if (deleted) return next();
+    const deleted = await db.one('SELECT * FROM deleted_identities WHERE digest=$1', [hash(req.subject)]);
+    const fresh = deleted && Number.isFinite(req.tokenIssuedAt) && req.tokenIssuedAt > Math.floor(new Date(deleted.deleted_at).getTime() / 1000);
+    const recreate = req.method === 'POST' && req.path === '/account/recreate';
+    if (deleted && recreate) {
+      requireValue(req.body.confirm === 'CREATE', 'Confirm creation of a new empty account.');
+      requireValue(fresh, 'Sign out and sign in again before creating your new account.', 401);
+      await db.query('UPDATE deleted_identities SET recreated=true WHERE digest=$1', [hash(req.subject)]);
+    } else {
+      requireValue(!deleted || (deleted.recreated && fresh) || (req.method === 'DELETE' && req.path === '/account/data'), 'This Nudge account has been deleted. Sign out.', 401);
+      if (deleted && !deleted.recreated) return next();
+    }
     await db.query('INSERT INTO accounts(subject) VALUES($1) ON CONFLICT(subject) DO NOTHING', [req.subject]);
     next();
   });
+  app.post('/api/account/recreate', (_req, res) => res.json({ ok: true }));
   const rates = new Map();
   app.use('/api', (req, res, next) => {
     const now = Date.now();
@@ -273,7 +282,7 @@ export function application({ db, vault, ai, mail, engine, scrape, config, ident
       catch { warnings.push('Gmail access could not be revoked remotely. Remove Nudge from your Google account connections. Stored Gmail credentials have been deleted.'); }
       try { const removeIdentity = await identity.prepare(); await removeIdentity(req.subject); auth0Deleted = true; }
       catch { warnings.push('Your Nudge data was deleted, but your Auth0 account could not be deleted. The server owner must check Auth0 Management API configuration and finish removing that account.'); }
-      await db.query('INSERT INTO deleted_identities(digest) VALUES($1) ON CONFLICT DO NOTHING', [hash(req.subject)]);
+      await db.query('INSERT INTO deleted_identities(digest) VALUES($1) ON CONFLICT(digest) DO UPDATE SET deleted_at=now(),recreated=false', [hash(req.subject)]);
       await db.query('DELETE FROM accounts WHERE subject=$1', [req.subject]);
     });
     requireValue(completed, 'A worker is finishing. Retry account deletion shortly.', 409);

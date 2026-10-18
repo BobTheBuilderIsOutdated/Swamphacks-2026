@@ -72,3 +72,6 @@ CREATE INDEX IF NOT EXISTS events_owner ON events(subject,created_at);
 
 -- Retained only to block old tokens from recreating a deleted identity.
 CREATE TABLE IF NOT EXISTS deleted_identities (digest text PRIMARY KEY);
+
+ALTER TABLE deleted_identities ADD COLUMN IF NOT EXISTS deleted_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE deleted_identities ADD COLUMN IF NOT EXISTS recreated boolean NOT NULL DEFAULT false;

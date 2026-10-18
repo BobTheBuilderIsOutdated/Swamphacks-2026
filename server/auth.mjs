@@ -11,6 +11,7 @@ export function authentication(config) {
       const { payload } = await jwtVerify(match[1], jwks, { issuer, audience: config.audience, algorithms: ['RS256'] });
       if (typeof payload.sub !== 'string' || payload.sub.endsWith('@clients')) throw new Error('A user token is required.');
       req.subject = payload.sub;
+      req.tokenIssuedAt = payload.iat;
       next();
     } catch { res.status(401).json({ error: 'Your session expired. Sign in again.' }); }
   };
