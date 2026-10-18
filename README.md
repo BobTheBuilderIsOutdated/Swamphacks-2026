@@ -2,7 +2,7 @@
 
 Make the first move. An account-backed outreach application and sideloadable Chrome extension for research positions, internships, and jobs.
 
-This replaces the original browser-local opportunity organizer. Users upload their documents, connect Gmail, define a campaign, and authorize Nudge to research contacts, compose original personalized emails, read replies, and follow up. The website explains Nudge and provides a signed-in dashboard; the extension provides the same workspace plus current-page research and notifications.
+Users upload their documents, connect Gmail, define a campaign, and authorize Nudge to research contacts, compose original personalized emails, read replies, and follow up. The website explains Nudge and provides a signed-in dashboard; the extension provides the same workspace plus current-page research and notifications.
 
 ## Run
 
