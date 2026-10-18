@@ -19,7 +19,8 @@ export async function initialize() {
         authorizationParams: { audience: config.audience, redirect_uri: `${location.origin}/auth/callback`, scope: 'openid profile email' },
         cacheLocation: 'memory',
       });
-      if (location.pathname === '/auth/callback' && location.search.includes('code=')) {
+      const callbackParams = new URLSearchParams(location.search);
+      if (location.pathname === '/auth/callback' && (callbackParams.has('code') || callbackParams.has('error'))) {
         await auth.handleRedirectCallback(); history.replaceState({}, '', '/dashboard');
       }
     }
