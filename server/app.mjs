@@ -18,6 +18,12 @@ export async function extractDocument(file) {
   let text;
   if (/\.pdf$/i.test(name)) {
     requireValue(file.buffer.subarray(0, 5).toString() === '%PDF-', 'Invalid PDF file.');
+    // Load native geometry explicitly before PDF.js evaluates its DOMMatrix usage.
+    // Its optional, dynamic canvas require can be omitted by serverless tracing.
+    const { DOMMatrix, ImageData, Path2D } = await import('@napi-rs/canvas');
+    globalThis.DOMMatrix ??= DOMMatrix;
+    globalThis.ImageData ??= ImageData;
+    globalThis.Path2D ??= Path2D;
     const { PDFParse } = await import('pdf-parse');
     const parser = new PDFParse({ data: new Uint8Array(file.buffer) });
     try { text = (await parser.getText()).text; } finally { await parser.destroy(); }
