@@ -10,7 +10,7 @@ export function configuration(env = process.env, { validate = true } = {}) {
     extensionClientId: env.AUTH0_EXTENSION_CLIENT_ID || '', audience: env.AUTH0_AUDIENCE || '',
     extensionOrigins: (env.EXTENSION_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean),
     encryptionKey: env.DATA_ENCRYPTION_KEY || '', geminiKey: env.GEMINI_API_KEY || '',
-    model: env.GEMINI_MODEL || 'gemini-3.8-flash', googleClientId: env.GOOGLE_CLIENT_ID || '',
+    model: env.GEMINI_MODEL || 'gemini-2.5-flash', googleClientId: env.GOOGLE_CLIENT_ID || '',
     googleSecret: env.GOOGLE_CLIENT_SECRET || '', sendingEnabled: env.EMAIL_SENDING_ENABLED === 'true',
     workerEnabled: env.WORKER_ENABLED !== 'false', workerInterval: Math.max(15, Number(env.WORKER_INTERVAL_SECONDS || 60)),
     cronSecret: env.CRON_SECRET || '',

@@ -49,7 +49,7 @@ Do not enable a service account or domain-wide delegation for this consumer mail
 
 ## 4. Gemini
 
-Create a Gemini API key in Google AI Studio and set `GEMINI_API_KEY` on the server. The configured model defaults to `gemini-3.8-flash`. Confirm that your project has access to the model, structured JSON output, and Google Search grounding; configure `GEMINI_MODEL` if needed. Provider quotas and charges apply; this build does not promise free unlimited usage.
+Create a Gemini API key in Google AI Studio and set `GEMINI_API_KEY` on the server. The configured model defaults to `gemini-2.5-flash`. Confirm that your project has access to the model, structured JSON output, and Google Search grounding; configure `GEMINI_MODEL` if needed. Provider quotas and charges apply; this build does not promise free unlimited usage.
 
 No API key is embedded in browser or extension code. Resume content and relevant conversation content go to Gemini for the user-requested tasks. Review provider data settings before deploying to other users.
 
