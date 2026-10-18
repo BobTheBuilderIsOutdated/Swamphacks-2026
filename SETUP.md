@@ -118,3 +118,8 @@ Use **Research one person** on Overview or Campaigns. Supply the exact professio
 ## Rollback for this change
 
 The previous UI and extension code is commit `2cd6003`. Redeploy that revision to roll back this code. The new `deleted_identities` table is additive and can remain. Rolling back to older code also removes its old-token rejection, so do not roll back after deleting real accounts without retaining that check. Keep `EMAIL_SENDING_ENABLED=false` for the hackathon demo.
+
+
+## Two-stage broad campaign discovery
+
+Each broad campaign research pass first discovers organizations/labs/teams and verifies source excerpts, sector relevance, and the requested radius (or explicit remote opportunities when enabled). The verified shortlist is saved to the timeline before employee research begins. No passing organizations means no employee search. Employee discovery receives only that shortlist, and the backend rejects contacts with an organization name outside it; individual contact and source verification still applies before drafting. Canonical organization names must match, so uncertain aliases are conservatively excluded. Single-person campaigns keep their explicit-person workflow. Research cooldown and live-sending controls are unchanged.

@@ -58,7 +58,7 @@ async function dashboard() {
 const head = (eyebrow, title, text, button = '') => `<div class="page-head"><div><span class="eyebrow">${eyebrow}</span><h1>${title}</h1><p>${text}</p></div>${button}</div>`;
 const empty = (title, text) => `<div class="empty"><div class="empty-symbol">↗</div><h3>${title}</h3><p>${text}</p></div>`;
 function eventList(events) {
-  return events.map(e => `<div class="event"><b>${esc(label(e.kind))}</b><p>${esc(e.detail?.summary || e.detail?.message || e.detail?.reason || e.detail?.instruction || '')}</p><small>${date(e.created_at)}</small></div>`).join('');
+  return events.map(e => `<div class="event"><b>${esc(label(e.kind))}</b><p>${esc(e.detail?.summary || e.detail?.message || e.detail?.reason || e.detail?.instruction || '')}</p>${e.kind === 'organizations_shortlisted' ? (e.detail.organizations || []).map(o => `<p><b>${esc(o.name)}</b> · ${esc(o.location)}${o.remote ? ' · Remote' : ''}<br>${esc(o.sectorFit)}</p>`).join('') : ''}<small>${date(e.created_at)}</small></div>`).join('');
 }
 function render() {
   if (current === 'overview') overview();

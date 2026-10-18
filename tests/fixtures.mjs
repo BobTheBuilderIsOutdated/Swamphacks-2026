@@ -18,6 +18,8 @@ export async function fixture(overrides = {}, identity) {
   const sent = [], threadMessages = [], faults = { send: false }, stats = { drafts: 0, research: 0 };
   const ai = {
     profile: async () => profile,
+    organizations: async () => ({ organizations: [{ name: 'Example Lab', website: 'https://example.org', location: 'Gainesville', distanceMiles: 3, remote: false, sectorFit: 'Research tools', sources: leadResearch.sources }], searchSummary: 'Organization search' }),
+    verifyOrganization: async () => ({ eligible: true }),
     research: async () => { stats.research++; return { leads: [leadResearch], searchSummary: 'Test research', grounding: {} }; },
     draft: async () => { stats.drafts++; return { subject: 'Your research tools', body: 'Hello, I built a research tool and would like to discuss your work.', missingFacts: [], needsHuman: false, reason: '', usedProfileFacts: ['Built a research tool.'], usedSourceUrls: ['https://example.org/team'] }; },
     verify: async () => ({ supported: true, issues: [] }), verifyLead: async () => ({ eligible: true }),
